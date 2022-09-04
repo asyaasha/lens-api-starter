@@ -1,15 +1,20 @@
 import { useRouter } from "next/router";
-import Layout from "../../components/Layout";
 import Head from "next/head";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 import { client, getProfileById, getPublicationsById } from "../../api";
+import ABI from "../../abi.json";
+import Layout from "../../components/Layout";
 
 export default function Profile() {
   const router = useRouter();
   const { id } = router.query;
   const [profile, setProfile] = useState();
+  const [accounts, setAccounts] = useState(null);
   const [pubs, setPubs] = useState([]);
+
+  const CONTRACT_ADDRESS = "0x60Ae865ee4C725cd04353b5AAb364553f56ceF82";
 
   useEffect(() => {
     if (id) {
@@ -30,6 +35,29 @@ export default function Profile() {
       setPubs(publications.data.publications.items);
     } catch (error) {
       console.log("ERROR:", error);
+    }
+  }
+
+  async function connectWallet() {
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    console.log("accounts: ", accounts);
+    setAccounts(accounts);
+  }
+
+  async function followUser() {
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const signer = provider.getSigner();
+
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+    try {
+      const tx = await contract.follow([id], [0x0]);
+      await tx.wait();
+      console.log("Followed user successfully");
+    } catch (err) {
+      console.log("Failed to follow user due to", err);
     }
   }
 
@@ -82,6 +110,23 @@ export default function Profile() {
                 </div>
                 <p className="mb-4">{profile.bio}</p>
                 {/* Add connect and follow buttons here */}
+                {accounts ? (
+                  <button
+                    onClick={followUser}
+                    type="button"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                  >
+                    Follow {profile.handle}
+                  </button>
+                ) : (
+                  <button
+                    onClick={connectWallet}
+                    type="button"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-emerald-700 bg-emerald-100 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                  >
+                    Connect Wallet
+                  </button>
+                )}
               </div>
               {/* Add publications here */}
               {pubs.length > 0 && (
